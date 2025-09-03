@@ -23,7 +23,9 @@ class Map extends Component implements HasForms
 
     public function mount(): void
     {
-        $this->form->fill();
+        $this->form->fill([
+            'created_at' => now()->toDateString(), // Set default ke hari ini
+        ]);
         $this->filterAttendance();
     }
 
@@ -35,9 +37,9 @@ class Map extends Component implements HasForms
                     ->schema([
                         Forms\Components\DatePicker::make('created_at')
                             ->label('Date')
-                            ->reactive()
-                            ->afterStateUpdated(function ($state) {
-                                
+                            ->default(now()->toDateString())
+                            ->live()
+                            ->afterStateUpdated(function (Set $set, $state) {
                                 $this->created_at = $state;
                                 $this->filterAttendance();
                             }),
@@ -55,11 +57,13 @@ class Map extends Component implements HasForms
     {
         $query = Attendance::with('user');
         
-        if (isset($this->created_at)) {
+        // Jika tanggal dipilih, filter berdasarkan tanggal tersebut
+        if (!empty($this->created_at)) {
             $query->whereDate('created_at', $this->created_at);
-            //  dd($query->get());
+        } else {
+            // Jika tidak ada tanggal yang dipilih, tampilkan presensi hari ini
+            $query->whereDate('created_at', now()->toDateString());
         }
-        
 
         $this->markers = $query->get();
         $this->dispatch('markersUpdated');
