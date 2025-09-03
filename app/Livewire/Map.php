@@ -37,13 +37,13 @@ class Map extends Component implements HasForms
                     ->schema([
                         Forms\Components\DatePicker::make('created_at')
                             ->label('Date')
-                            ->default(now()->toDateString())
+                            // ->default(now()->toDateString())
                             ->live()
                             ->afterStateUpdated(function (Set $set, $state) {
                                 $this->created_at = $state;
                                 $this->filterAttendance();
                             }),
-                        
+
                     ]),
             ]);
     }
@@ -56,7 +56,7 @@ class Map extends Component implements HasForms
     public function filterAttendance()
     {
         $query = Attendance::with('user');
-        
+
         // Jika tanggal dipilih, filter berdasarkan tanggal tersebut
         if (!empty($this->created_at)) {
             $query->whereDate('created_at', $this->created_at);
@@ -69,5 +69,5 @@ class Map extends Component implements HasForms
         $this->dispatch('markersUpdated');
     }
 
-    
+
 }
