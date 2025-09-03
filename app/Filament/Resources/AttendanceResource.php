@@ -72,6 +72,8 @@ class AttendanceResource extends Resource
                     $query->where('attendances.user_id', Auth::user()->id);
                 }
                 
+                // Filter untuk menampilkan hanya presensi hari ini
+                $query->whereDate('created_at', now()->toDateString());
             })
             ->columns([
                 Tables\Columns\TextColumn::make('created_at')
@@ -111,7 +113,18 @@ class AttendanceResource extends Resource
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
-                //
+                Tables\Filters\Filter::make('created_at')
+                    ->form([
+                        Forms\Components\DatePicker::make('created_from')
+                            ->label('Dari Tanggal'),
+                        Forms\Components\DatePicker::make('created_until')
+                            ->label('Sampai Tanggal'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when($data['created_from'], fn (Builder $query, $date): Builder => $query->whereDate('created_at', '>=', $date))
+                            ->when($data['created_until'], fn (Builder $query, $date): Builder => $query->whereDate('created_at', '<=', $date));
+                    }),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
