@@ -1,4 +1,4 @@
-<div class="grid grid-cols-1 dark:bg-gray-900 md:grid-cols-12 gap-4" wire:ignore>
+<div class="grid grid-cols-1 dark:bg-gray-900 md:grid-cols-12 gap-4">
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <div class="md:col-span-12 bg-white dark:bg-gray-800 shadow-md rounded-lg p-6">
@@ -31,21 +31,24 @@
        console.log(markers);
 
         markers.forEach(marker => {
-            const str = `Nama : ${marker.user.name}<br>Jam Masuk : ${marker.start_time}`;
-            L.marker([marker.start_latitude, marker.start_longitude])
-                .addTo(map)
-                .bindPopup(str);
+            if (marker.start_latitude && marker.start_longitude) {
+                const str = `Nama : ${marker.user.name}<br>Jam Masuk : ${marker.start_time || 'Belum tersedia'}`;
+                L.marker([marker.start_latitude, marker.start_longitude])
+                    .addTo(map)
+                    .bindPopup(str);
+            }
         });
     }
 
-    document.addEventListener('livewire:load', function() {
+    document.addEventListener('livewire:init', function () {
+        // Inisialisasi peta saat pertama kali dimuat
         initializeMap();
-    });
-
-    document.addEventListener('livewire:initialized', function() {
-        Livewire.on('markersUpdated', function() {
-            initializeMap();
+        
+        // Update peta saat markers diperbarui
+        Livewire.on('markersUpdated', () => {
+            setTimeout(() => {
+                initializeMap();
+            }, 100);
         });
-
     });
 </script>
