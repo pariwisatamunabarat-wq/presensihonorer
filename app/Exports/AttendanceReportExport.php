@@ -47,7 +47,9 @@ class AttendanceReportExport implements FromCollection, WithHeadings, WithStyles
 
             // Tambahkan status harian
             for ($day = 1; $day <= $this->daysInMonth; $day++) {
-                $dayData = $data['daily_status'][$day] ?? ['status' => ''];
+                $currentDate = Carbon::create($this->year, $this->month, $day);
+                $dateKey = $currentDate->format('Y-m-d');
+                $dayData = $data['daily_status'][$dateKey] ?? ['status' => ''];
                 $status = $dayData['status'];
                 
                 // Konversi status untuk Excel
@@ -271,7 +273,9 @@ class AttendanceReportExport implements FromCollection, WithHeadings, WithStyles
         
         foreach ($this->attendanceData as $data) {
             for ($day = 1; $day <= $this->daysInMonth; $day++) {
-                $dayData = $data['daily_status'][$day] ?? ['status' => ''];
+                $currentDate = Carbon::create($this->year, $this->month, $day);
+                $dateKey = $currentDate->format('Y-m-d');
+                $dayData = $data['daily_status'][$dateKey] ?? ['status' => ''];
                 $status = $dayData['status'];
                 $columnIndex = 6 + $day;
                 $columnLetter = $this->getColumnLetter($columnIndex);
