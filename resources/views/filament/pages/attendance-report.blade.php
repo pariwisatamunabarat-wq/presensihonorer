@@ -106,8 +106,8 @@
                                         <div class="font-medium">{{ $data['schedule']->shift->name ?? '-' }}</div>
                                         @if($data['schedule']->shift)
                                             <div class="text-gray-500">
-                                                {{ \Carbon\Carbon::parse($data['schedule']->shift->start_time)->timezone('Asia/Makassar')->format('H:i') }} - 
-                                                {{ \Carbon\Carbon::parse($data['schedule']->shift->end_time)->timezone('Asia/Makassar')->format('H:i') }}
+                                                {{ \Carbon\Carbon::parse($data['schedule']->shift->start_time)->format('H:i') }} - 
+                                                {{ \Carbon\Carbon::parse($data['schedule']->shift->end_time)->format('H:i') }}
                                             </div>
                                         @endif
                                         @if($data['schedule']->office)
@@ -117,7 +117,9 @@
                                     
                                     @for($day = 1; $day <= $this->getDaysInMonth(); $day++)
                                         @php
-                                            $dayData = $data['daily_status'][$day] ?? ['status' => '', 'note' => '', 'is_late' => false, 'is_weekend' => false];
+                                            $currentDate = \Carbon\Carbon::create($this->selectedYear, $this->selectedMonth, $day);
+                                            $dateKey = $currentDate->format('Y-m-d');
+                                            $dayData = $data['daily_status'][$dateKey] ?? ['status' => '', 'note' => '', 'is_late' => false, 'is_weekend' => false];
                                             $status = $dayData['status'];
                                             $isLate = $dayData['is_late'] ?? false;
                                             $isWeekend = $dayData['is_weekend'] ?? false;

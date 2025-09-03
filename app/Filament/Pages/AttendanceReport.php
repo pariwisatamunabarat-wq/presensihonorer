@@ -35,8 +35,6 @@ class AttendanceReport extends Page implements HasForms
     {
         // Set locale ke Indonesia
         Carbon::setLocale('id');
-        // Set timezone ke Asia/Makassar
-        date_default_timezone_set('Asia/Makassar');
         
         $this->selectedMonth = now()->month;
         $this->selectedYear = now()->year;
@@ -101,10 +99,9 @@ class AttendanceReport extends Page implements HasForms
             return collect();
         }
 
-        // Set timezone ke Asia/Makassar untuk semua operasi tanggal
-        $tz = 'Asia/Makassar';
-        $startDate = Carbon::create($this->selectedYear, $this->selectedMonth, 1)->startOfMonth()->timezone($tz);
-        $endDate = $startDate->copy()->endOfMonth()->timezone($tz);
+        // Gunakan timezone dari konfigurasi aplikasi
+        $startDate = Carbon::create($this->selectedYear, $this->selectedMonth, 1)->startOfMonth();
+        $endDate = $startDate->copy()->endOfMonth();
         $daysInMonth = $endDate->day;
 
         $users = User::whereIn('id', $this->selectedUsers)
@@ -122,18 +119,19 @@ class AttendanceReport extends Page implements HasForms
                 continue;
             }
 
-            // Ambil data kehadiran dengan memperhatikan timezone
+            // Ambil data kehadiran berdasarkan created_at
             $userAttendances = Attendance::where('user_id', $user->id)
-                ->whereBetween('start_time', [$startDate, $endDate])
+                ->whereBetween('created_at', [$startDate, $endDate])
                 ->get()
-                ->keyBy(function ($attendance) use ($tz) {
-                    return Carbon::parse($attendance->start_time)->timezone($tz)->day;
+                ->keyBy(function ($attendance) {
+                    // Gunakan created_at untuk menentukan tanggal kehadiran
+                    return Carbon::parse($attendance->created_at)->format('Y-m-d');
                 });
 
             // Ambil data cuti yang disetujui
             $userLeaves = Leave::where('user_id', $user->id)
                 ->where('status', 'approved')
-                ->where(function ($query) use ($startDate, $endDate, $tz) {
+                ->where(function ($query) use ($startDate, $endDate) {
                     $query->whereBetween('start_date', [$startDate, $endDate])
                           ->orWhereBetween('end_date', [$startDate, $endDate])
                           ->orWhere(function ($q) use ($startDate, $endDate) {
@@ -149,8 +147,9 @@ class AttendanceReport extends Page implements HasForms
             $totalScheduledDays = 0;
 
             for ($day = 1; $day <= $daysInMonth; $day++) {
-                $currentDate = Carbon::create($this->selectedYear, $this->selectedMonth, $day)->timezone($tz);
+                $currentDate = Carbon::create($this->selectedYear, $this->selectedMonth, $day);
                 $dayOfWeek = $currentDate->dayOfWeek;
+                $dateKey = $currentDate->format('Y-m-d');
                 
                 // Cek apakah hari ini termasuk dalam allowed_days schedule
                 $isScheduledDay = $this->isScheduledDay($userSchedule, $dayOfWeek);
@@ -159,7 +158,7 @@ class AttendanceReport extends Page implements HasForms
                 $isWeekend = in_array($dayOfWeek, [0, 6]);
                 
                 if (!$isScheduledDay) {
-                    $dailyStatus[$day] = [
+                    $dailyStatus[$dateKey] = [
                         'status' => '-',
                         'note' => $isWeekend ? 'Akhir pekan' : 'Tidak dijadwalkan',
                         'is_late' => false,
@@ -178,22 +177,22 @@ class AttendanceReport extends Page implements HasForms
                 });
 
                 if ($isOnLeave) {
-                    $dailyStatus[$day] = [
+                    $dailyStatus[$dateKey] = [
                         'status' => 'I',
                         'note' => 'Izin',
                         'is_late' => false,
                         'is_weekend' => $isWeekend
                     ];
-                } elseif (isset($userAttendances[$day])) {
-                    $attendance = $userAttendances[$day];
+                } elseif (isset($userAttendances[$dateKey])) {
+                    $attendance = $userAttendances[$dateKey];
                     $isLate = $this->checkIfLate($attendance, $userSchedule);
                     
-                    $dailyStatus[$day] = [
+                    $dailyStatus[$dateKey] = [
                         'status' => 'H',
                         'note' => $isLate ? 'Terlambat' : 'Tepat waktu',
                         'is_late' => $isLate,
-                        'start_time' => Carbon::parse($attendance->start_time)->timezone($tz)->format('H:i'),
-                        'end_time' => $attendance->end_time ? Carbon::parse($attendance->end_time)->timezone($tz)->format('H:i') : null,
+                        'start_time' => Carbon::parse($attendance->start_time)->format('H:i'),
+                        'end_time' => $attendance->end_time ? Carbon::parse($attendance->end_time)->format('H:i') : null,
                         'is_weekend' => $isWeekend
                     ];
                     
@@ -204,14 +203,14 @@ class AttendanceReport extends Page implements HasForms
                 } else {
                     // Cek apakah user banned pada hari ini
                     if ($userSchedule->is_banned) {
-                        $dailyStatus[$day] = [
+                        $dailyStatus[$dateKey] = [
                             'status' => 'B',
                             'note' => 'Diblokir',
                             'is_late' => false,
                             'is_weekend' => $isWeekend
                         ];
                     } else {
-                        $dailyStatus[$day] = [
+                        $dailyStatus[$dateKey] = [
                             'status' => 'A',
                             'note' => 'Alpha',
                             'is_late' => false,
@@ -253,12 +252,10 @@ class AttendanceReport extends Page implements HasForms
             return false;
         }
         
-        // Gunakan timezone Asia/Makassar
-        $tz = 'Asia/Makassar';
-        
-        $attendanceTime = Carbon::parse($attendance->start_time)->timezone($tz);
-        $attendanceDate = $attendanceTime->format('Y-m-d');
-        $scheduledTime = Carbon::parse($attendanceDate . ' ' . $schedule->shift->start_time)->timezone($tz);
+        // Gunakan created_at untuk menentukan tanggal kehadiran
+        $attendanceTime = Carbon::parse($attendance->start_time);
+        $attendanceDateFromCreated = Carbon::parse($attendance->created_at)->format('Y-m-d');
+        $scheduledTime = Carbon::parse($attendanceDateFromCreated . ' ' . $schedule->shift->start_time);
 
         return $attendanceTime->greaterThan($scheduledTime);
     }
@@ -282,8 +279,7 @@ class AttendanceReport extends Page implements HasForms
     // Method untuk mendapatkan informasi hari dalam bahasa Indonesia
     public function getDayInfo($day): array
     {
-        $tz = 'Asia/Makassar';
-        $currentDate = Carbon::create($this->selectedYear, $this->selectedMonth, $day)->timezone($tz);
+        $currentDate = Carbon::create($this->selectedYear, $this->selectedMonth, $day);
         $dayOfWeek = $currentDate->dayOfWeek;
         
         $dayNames = [
@@ -370,5 +366,11 @@ class AttendanceReport extends Page implements HasForms
             ->info()
             ->duration(5000)
             ->send();
+    }
+    
+    // Menentukan apakah user bisa mengakses page ini
+    public static function canAccess(): bool
+    {
+        return auth()->user()->can('page_AttendanceReport');
     }
 }

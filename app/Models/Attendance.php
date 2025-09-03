@@ -26,7 +26,7 @@ class Attendance extends Model
         'end_time',
         'is_leave'
     ];
-    
+
     protected $casts = [
         'is_leave' => 'boolean',
         'schedule_start_time' => 'datetime',
@@ -34,9 +34,9 @@ class Attendance extends Model
         // 'start_time' => 'datetime',
         // 'end_time' => 'datetime',
     ];
-    
+
     protected $dateFormat = 'Y-m-d H:i:s';
-    
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
