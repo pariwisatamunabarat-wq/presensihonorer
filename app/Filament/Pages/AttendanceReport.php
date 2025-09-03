@@ -83,11 +83,20 @@ class AttendanceReport extends Page implements HasForms
                     ->multiple()
                     ->options(function () {
                         // Ambil semua user yang memiliki schedule
-                        return User::whereHas('schedules')->pluck('name', 'id');
+                        $users = User::whereHas('schedules')->pluck('name', 'id');
+                        // Tambahkan opsi "Pilih Semua Karyawan" di awal
+                        return [0 => 'Semua Karyawan'] + $users->toArray();
                     })
                     ->searchable()
                     ->live()
-                    ->afterStateUpdated(fn ($state) => $this->selectedUsers = $state ?? []),
+                    ->afterStateUpdated(function ($state) {
+                        // Jika "Semua Karyawan" dipilih (ID 0), ambil semua user yang memiliki schedule
+                        if (is_array($state) && in_array(0, $state)) {
+                            $this->selectedUsers = User::whereHas('schedules')->pluck('id')->toArray();
+                        } else {
+                            $this->selectedUsers = $state ?? [];
+                        }
+                    }),
             ])
             ->statePath('data')
             ->columns(3);
@@ -95,8 +104,9 @@ class AttendanceReport extends Page implements HasForms
 
     public function getAttendanceData(): Collection
     {
+        // Jika tidak ada user yang dipilih, ambil semua user yang memiliki schedule
         if (empty($this->selectedUsers)) {
-            return collect();
+            $this->selectedUsers = User::whereHas('schedules')->pluck('id')->toArray();
         }
 
         // Gunakan timezone dari konfigurasi aplikasi
